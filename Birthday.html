@@ -1,0 +1,252 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surprise!</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --neon-purple: #bc13fe;
+            --neon-glow: #d670ff;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            color: white;
+        }
+
+        #content-wrapper {
+            text-align: center;
+            padding: 20px;
+            z-index: 10;
+        }
+
+        .neon-btn {
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 15px 30px;
+            background-color: var(--neon-purple);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 5px var(--neon-purple), 0 0 20px var(--neon-purple), 0 0 40px var(--neon-glow);
+        }
+
+        /* Floating Box Styling */
+        #floating-box {
+            position: fixed;
+            padding: 10px 20px;
+            background: rgba(188, 19, 254, 0.2);
+            border: 2px solid var(--neon-purple);
+            color: white;
+            border-radius: 12px;
+            cursor: pointer;
+            display: none;
+            z-index: 100;
+            font-weight: bold;
+            transition: left 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), top 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.2s;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        /* Message Reveal Styling */
+        #reveal-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .reveal-text {
+            font-size: 2rem;
+            margin: 10px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.8s ease-out;
+            text-align: center;
+        }
+
+        .reveal-text.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .final-text {
+            color: var(--neon-glow);
+            font-size: 3.5rem;
+            text-shadow: 0 0 10px var(--neon-purple);
+        }
+
+        h1 { font-size: 2.5rem; line-height: 1.4; }
+        .sub-text { font-size: 1.2rem; color: #aaa; font-style: italic; }
+        #message-container { display: none; opacity: 0; transition: opacity 1s ease-in; }
+    </style>
+</head>
+<body>
+
+    <div id="content-wrapper">
+        <button id="trigger-btn" class="neon-btn">Press Here</button>
+        <div id="message-container">
+            <h1>They say 50 is the new 30!</h1>
+            <p class="sub-text">(Who’s they? Probably a bunch of old people like you)</p>
+        </div>
+    </div>
+
+    <div id="floating-box">click me (if you can)</div>
+
+    <div id="reveal-container">
+        <div class="reveal-text" id="t1">you have ruined me</div>
+        <div class="reveal-text" id="t2">by giving me so many good books</div>
+        <div class="reveal-text" id="t3">my palette is too curated</div>
+        <div class="reveal-text" id="t4">my brain too refined</div>
+        <div class="reveal-text" id="t5">you are very cool</div>
+        <div class="reveal-text final-text" id="t6">happy half a century</div>
+    </div>
+
+    <script>
+        const triggerBtn = document.getElementById('trigger-btn');
+        const floatBox = document.getElementById('floating-box');
+        const revealContainer = document.getElementById('reveal-container');
+        
+        let isPopped = false;
+        let escapeCount = 0;
+        const maxEscapes = 5;
+
+        // Audio Context for the "Pop" sound
+        function playPopSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(400, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.1);
+            } catch (e) {
+                console.log("Audio play failed, user gesture might be required.");
+            }
+        }
+
+        // Initial Button Click
+        triggerBtn.addEventListener('click', function() {
+            this.style.display = 'none';
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+            const msg = document.getElementById('message-container');
+            msg.style.display = 'block';
+            setTimeout(() => { msg.style.opacity = '1'; }, 100);
+            setTimeout(showFloatingBox, 1500);
+        });
+
+        function showFloatingBox() {
+            floatBox.style.display = 'block';
+            teleportBox();
+        }
+
+        // The "Runaway" Logic with limit
+        function handleEscape(e) {
+            if (isPopped) return;
+            
+            if (escapeCount < maxEscapes) {
+                escapeCount++;
+                teleportBox();
+                // Change text slightly as it gets "tired"
+                if (escapeCount === maxEscapes) {
+                    floatBox.innerText = "okay, fine. click me.";
+                    floatBox.style.background = "rgba(188, 19, 254, 0.6)";
+                }
+            }
+        }
+
+        floatBox.addEventListener('mouseover', handleEscape);
+        floatBox.addEventListener('touchstart', (e) => {
+            if (escapeCount < maxEscapes) {
+                e.preventDefault(); 
+                handleEscape();
+            }
+        });
+
+        function teleportBox() {
+            if (isPopped) return;
+            const padding = 100;
+            const maxX = window.innerWidth - floatBox.offsetWidth - padding;
+            const maxY = window.innerHeight - floatBox.offsetHeight - padding;
+            
+            const newX = Math.max(padding / 2, Math.random() * maxX);
+            const newY = Math.max(padding / 2, Math.random() * maxY);
+            
+            floatBox.style.left = newX + 'px';
+            floatBox.style.top = newY + 'px';
+        }
+
+        // Final Successful Click
+        floatBox.addEventListener('click', function() {
+            // Only allow click if it has finished escaping or user was super fast
+            if (isPopped) return;
+            isPopped = true;
+            
+            playPopSound();
+            
+            // Visual Pop
+            floatBox.style.transform = 'scale(10)';
+            floatBox.style.opacity = '0';
+            
+            setTimeout(() => {
+                floatBox.style.display = 'none';
+                revealContainer.style.display = 'flex';
+                startSequence();
+            }, 300);
+        });
+
+        async function startSequence() {
+            const texts = ['t1', 't2', 't3', 't4', 't5', 't6'];
+            for (let i = 0; i < texts.length; i++) {
+                await new Promise(r => setTimeout(r, i === 0 ? 800 : 1800));
+                document.getElementById(texts[i]).classList.add('active');
+                
+                if (i === texts.length - 1) {
+                    confetti({
+                        particleCount: 250,
+                        spread: 120,
+                        origin: { y: 0.7 },
+                        colors: ['#bc13fe', '#ffffff', '#d670ff']
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
+```
+
